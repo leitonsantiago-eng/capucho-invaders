@@ -33,6 +33,9 @@ export class GameScene extends Phaser.Scene {
     this.bossHp = 0;
     this.bossMaxHp = 0;
     this.bossDir = 1;
+    this.bossAngry = false;
+    this.bossAngryBrows = null;
+    this.tutorialActive = false;
   }
 
   create() {
@@ -84,6 +87,10 @@ export class GameScene extends Phaser.Scene {
     this.setupInputs();
     this.createTouchControls();
     this.setupCollisions();
+
+    if (this.levelNumber === 1) {
+      this.startDurangoTutorial();
+    }
   }
 
   createHUD() {
@@ -296,6 +303,19 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(15);
     }
+
+    // Cejas rojas de enojo (se activan cuando la vida del Rector Murillo baja del 50%)
+    const browCx = murilloKey === 'rector_murillo' ? -24 : 0;
+    const browCy = murilloKey === 'rector_murillo' ? -36 : -20;
+    this.bossAngryBrows = this.add.graphics().setDepth(18).setPosition(this.boss.x, this.boss.y).setVisible(false);
+    this.bossAngryBrows.lineStyle(3, 0x050814, 1);
+    this.bossAngryBrows.fillStyle(0xff0022, 1);
+    // Ceja izquierda inclinada hacia el centro
+    this.bossAngryBrows.fillTriangle(browCx - 16, browCy - 6, browCx - 2, browCy - 1, browCx - 14, browCy - 1);
+    this.bossAngryBrows.strokeTriangle(browCx - 16, browCy - 6, browCx - 2, browCy - 1, browCx - 14, browCy - 1);
+    // Ceja derecha inclinada hacia el centro
+    this.bossAngryBrows.fillTriangle(browCx + 16, browCy - 6, browCx + 2, browCy - 1, browCx + 14, browCy - 1);
+    this.bossAngryBrows.strokeTriangle(browCx + 16, browCy - 6, browCx + 2, browCy - 1, browCx + 14, browCy - 1);
 
     // Barra de vida superior del Rector Murillo
     this.add
@@ -545,7 +565,7 @@ export class GameScene extends Phaser.Scene {
       eBullet.setData('hp', hp);
       eBullet.setTintFill(0xffffff);
       this.time.delayedCall(60, () => { if (eBullet.active) eBullet.clearTint(); });
-      soundManager.playBossHit();
+      soundManager.playProjectileHit();
 
       if (hp <= 0) {
         this.addScore(80);
@@ -650,7 +670,7 @@ export class GameScene extends Phaser.Scene {
     if (this.isLevelEnding) return;
     this.bossHp = Math.max(0, this.bossHp - 1);
     this.addScore(25);
-    soundManager.playBossHit();
+    soundManager.hit_boss_sound();
 
     boss.setTintFill(0xffffff);
     this.time.delayedCall(55, () => {
@@ -660,6 +680,24 @@ export class GameScene extends Phaser.Scene {
     const ratio = this.bossHp / this.bossMaxHp;
     if (this.bossBarFill) {
       this.bossBarFill.width = Math.max(0, 416 * ratio);
+    }
+
+    if (this.bossHp > 0 && ratio < 0.5 && !this.bossAngry) {
+      this.bossAngry = true;
+      if (this.bossAngryBrows) {
+        this.bossAngryBrows.setVisible(true);
+        this.tweens.add({
+          targets: this.bossAngryBrows,
+          scaleX: 1.18,
+          scaleY: 1.18,
+          duration: 180,
+          yoyo: true,
+          repeat: 2
+        });
+      }
+      soundManager.playBossRoar();
+      this.showFloatingBanner('😡 ¡RECTOR MURILLO ENOJADO! (+30% VELOCIDAD)');
+      this.showBossTaunt('¡Aquí no se cancela el semestre!');
     }
 
     if (this.bossHp <= 0) {
@@ -684,6 +722,7 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(1250, () => {
         if (this.bossLabel) this.bossLabel.destroy();
         if (this.bossTauntText) this.bossTauntText.destroy();
+        if (this.bossAngryBrows) this.bossAngryBrows.destroy();
         boss.destroy();
         soundManager.playGameOver(true);
         transitionTo(this, 'GameOverScene', {
@@ -834,8 +873,110 @@ export class GameScene extends Phaser.Scene {
     bullet.setDepth(9);
   }
 
+  startDurangoTutorial() {
+    this.tutorialActive = true;
+    const msg = '¡Hola! Soy Durango. Usa las flechas para moverte y ESPACIO para disparar';
+
+    const items = [];
+    const baseX = 72;
+    const baseY = 380;
+
+    // Fondo sutil detrás de Durango
+    const badge = this.add.circle(baseX, baseY + 6, 52, 0x0f172a, 0.72).setStrokeStyle(2, 0xffd700).setDepth(35);
+    items.push(badge);
+
+    if (this.textures.exists('durango')) {
+      const durango = this.add.image(baseX, baseY, 'durango').setDisplaySize(86, 98).setDepth(36);
+      items.push(durango);
+    } else {
+      const fallback = this.add.rectangle(baseX, baseY, 70, 84, 0xc81e2b).setStrokeStyle(2, 0xffffff).setDepth(36);
+      items.push(fallback);
+    }
+
+    // Dos pequeños rectángulos / sprites simulando sus manos animadas subiendo y bajando
+    let leftHand;
+    let rightHand;
+    if (this.textures.exists('durango_mano')) {
+      leftHand = this.add.image(baseX - 44, baseY + 26, 'durango_mano').setDepth(37);
+      rightHand = this.add.image(baseX + 44, baseY + 26, 'durango_mano').setFlipX(true).setDepth(37);
+    } else {
+      leftHand = this.add.rectangle(baseX - 44, baseY + 26, 22, 14, 0xd99b78).setStrokeStyle(2, 0x050814).setDepth(37);
+      rightHand = this.add.rectangle(baseX + 44, baseY + 26, 22, 14, 0xd99b78).setStrokeStyle(2, 0x050814).setDepth(37);
+    }
+    items.push(leftHand, rightHand);
+
+    const handTweens = [
+      this.tweens.add({
+        targets: leftHand,
+        y: baseY + 8,
+        duration: 210,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      }),
+      this.tweens.add({
+        targets: rightHand,
+        y: baseY + 8,
+        duration: 210,
+        delay: 105,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
+    ];
+
+    const box = this.add
+      .rectangle(365, baseY - 4, 440, 88, 0x0f172af2)
+      .setStrokeStyle(2, 0x00e5ff)
+      .setDepth(36);
+    const title = this.add
+      .text(162, baseY - 38, 'DURANGO • TUTORIAL MELÉNDEZ', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: COLORS.STAR_WARS_YELLOW
+      })
+      .setDepth(37);
+    const dialogText = this.add
+      .text(162, baseY - 18, '', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: COLORS.WHITE,
+        wordWrap: { width: 410 },
+        lineSpacing: 4
+      })
+      .setDepth(37);
+    items.push(box, title, dialogText);
+
+    let idx = 0;
+    const typeEvent = this.time.addEvent({
+      delay: 28,
+      repeat: msg.length - 1,
+      callback: () => {
+        idx += 1;
+        dialogText.setText(msg.slice(0, idx));
+        if (idx % 4 === 0) soundManager.playBlip();
+      }
+    });
+
+    this.time.delayedCall(4300, () => {
+      typeEvent.remove(false);
+      this.tweens.add({
+        targets: items,
+        alpha: 0,
+        duration: 380,
+        onComplete: () => {
+          handTweens.forEach((tw) => tw.stop());
+          items.forEach((obj) => obj.destroy());
+          this.tutorialActive = false;
+        }
+      });
+    });
+  }
+
   fireEnemyBullet() {
-    if (this.isPaused || this.isLevelEnding) return;
+    if (this.isPaused || this.isLevelEnding || this.tutorialActive) return;
     const activeEnemies = this.enemies.getChildren().filter((e) => e.active);
     if (activeEnemies.length === 0) return;
 
@@ -931,8 +1072,8 @@ export class GameScene extends Phaser.Scene {
 
   updateBossMovement(time, dt) {
     if (!this.boss || !this.boss.active) return;
-    const hpRatio = this.bossHp / this.bossMaxHp;
-    const speed = hpRatio < 0.3 ? 340 : hpRatio < 0.65 ? 275 : 220;
+    const baseSpeed = 220;
+    const speed = this.bossAngry ? baseSpeed * 1.3 : baseSpeed;
 
     this.boss.x += this.bossDir * speed * dt;
     this.boss.y = 150 + Math.sin(time / 380) * 14;
@@ -943,6 +1084,9 @@ export class GameScene extends Phaser.Scene {
     if (this.bossLabel) {
       this.bossLabel.setPosition(this.boss.x, this.boss.y + 38);
     }
+    if (this.bossAngryBrows) {
+      this.bossAngryBrows.setPosition(this.boss.x, this.boss.y);
+    }
     if (this.bossTauntText && this.bossTauntText.visible) {
       this.bossTauntText.setPosition(
         Phaser.Math.Clamp(this.boss.x, 165, GAME_CONFIG.WIDTH - 165),
@@ -952,6 +1096,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   updateEnemyFormation(time, dt) {
+    if (this.tutorialActive) return;
     const formationEnemies = this.enemies
       .getChildren()
       .filter((e) => e.active && !e.getData('diving'));

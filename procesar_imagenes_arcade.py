@@ -1,12 +1,14 @@
-"""Procesa las fotos reales del campus y del Rector Murillo a estilo 8-bits/arcade.
+"""Procesa las fotos reales del campus, Rector Murillo y Durango a estilo 8-bits/arcade.
 
 Genera con Pillow (PIL):
   - assets/images/bg_plazoleta.png   (800x600, fondo pixelado 8-bit de la Plazoleta de Ingenierias)
   - assets/images/rector_murillo.png (136x112, sprite pixel-art 8-bit del Rector Murillo con marco arcade)
+  - assets/images/durango.png        (120x136, PNG transparente de Durango cabeza/torso con gorro navideño)
+  - assets/images/durango_mano.png   (26x20, PNG transparente simulando la mano de Durango)
 """
 
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageEnhance, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 ROOT = Path(__file__).resolve().parent
 SOURCE_DIR = ROOT / "assets" / "images" / "source"
@@ -88,12 +90,119 @@ def generar_rector_murillo() -> Path:
     return out_path
 
 
+def generar_durango_y_manos() -> tuple[Path, Path]:
+    """Recorta cabeza/torso de Durango dejando fondo transparente y genera el sprite de su mano."""
+    src_path = SOURCE_DIR / "durango_2.jpg"
+    if not src_path.exists():
+        src_path = SOURCE_DIR / "durango_1.jpg"
+    if not src_path.exists():
+        raise FileNotFoundError("No se encontro ninguna foto fuente de Durango.")
+
+    raw = Image.open(src_path).convert("RGBA")
+    w, h = raw.size
+
+    # Recortar cabeza (con gorro de Navidad y pompon) + torso superior con polo Univalle
+    crop_box = (int(w * 0.08), int(h * 0.045), int(w * 0.89), int(h * 0.78))
+    portrait = raw.crop(crop_box)
+    target_size = (120, 136)
+    portrait = ImageOps.fit(portrait, target_size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.4))
+
+    # Construir mascara precisa alrededor de la silueta de cabeza, gorro navideño, pompon y torso
+    pw, ph = target_size
+    mask = Image.new("L", target_size, 0)
+    mdraw = ImageDraw.Draw(mask)
+
+    # Torso / hombros (parte inferior del recorte)
+    mdraw.polygon(
+        [
+            (2, ph),
+            (6, int(ph * 0.75)),
+            (int(pw * 0.22), int(ph * 0.61)),
+            (int(pw * 0.78), int(ph * 0.63)),
+            (pw - 6, int(ph * 0.76)),
+            (pw - 2, ph),
+        ],
+        fill=255,
+    )
+    # Bufanda / cuello
+    mdraw.ellipse([int(pw * 0.23), int(ph * 0.45), int(pw * 0.72), int(ph * 0.69)], fill=255)
+    # Cabeza y orejas
+    mdraw.ellipse([int(pw * 0.29), int(ph * 0.16), int(pw * 0.68), int(ph * 0.54)], fill=255)
+    # Gorro de Navidad (copa + ala blanca)
+    mdraw.polygon(
+        [
+            (int(pw * 0.27), int(ph * 0.27)),
+            (int(pw * 0.32), int(ph * 0.07)),
+            (int(pw * 0.48), int(ph * 0.02)),
+            (int(pw * 0.65), int(ph * 0.10)),
+            (int(pw * 0.69), int(ph * 0.27)),
+        ],
+        fill=255,
+    )
+    # Parte colgante izquierda y pompon blanco del gorro
+    mdraw.polygon(
+        [
+            (int(pw * 0.34), int(ph * 0.07)),
+            (int(pw * 0.21), int(ph * 0.22)),
+            (int(pw * 0.20), int(ph * 0.36)),
+            (int(pw * 0.31), int(ph * 0.34)),
+        ],
+        fill=255,
+    )
+    mdraw.ellipse([int(pw * 0.16), int(ph * 0.30), int(pw * 0.31), int(ph * 0.44)], fill=255)
+
+    # Refinar bordes removiendo tonos grises/oscuros del fondo exterior sin tocar piel, rojo ni blanco
+    px = portrait.load()
+    mpx = mask.load()
+    for y in range(int(ph * 0.58)):
+        for x in range(pw):
+            if mpx[x, y] == 0:
+                continue
+            r, g, b, _ = px[x, y]
+            is_edge = (
+                x < 4 or x > pw - 5 or y < 3
+                or mpx[max(0, x - 2), y] == 0
+                or mpx[min(pw - 1, x + 2), y] == 0
+                or mpx[x, max(0, y - 2)] == 0
+            )
+            brightness = (r + g + b) / 3
+            red_dominant = r > g + 30 and r > b + 25
+            white_pom = r > 175 and g > 170 and b > 165
+            skin_tone = r > 110 and r > b + 20 and g > 65
+            if is_edge and not red_dominant and not white_pom and not skin_tone and brightness < 150:
+                mpx[x, y] = 0
+
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=1.0))
+
+    # Aplicar estilo ligeramente retro/nitido y guardar PNG con canal alfa transparente
+    durango_rgba = ImageEnhance.Color(portrait.convert("RGB")).enhance(1.12).convert("RGBA")
+    durango_rgba.putalpha(mask)
+
+    durango_path = OUT_DIR / "durango.png"
+    durango_rgba.save(durango_path, format="PNG")
+
+    # Sprite simulando la mano de Durango (pequeno rectangulo redondeado estilo arcade con puño navideño)
+    hand = Image.new("RGBA", (26, 20), (0, 0, 0, 0))
+    hdraw = ImageDraw.Draw(hand)
+    # Manga roja + puño blanco + mano piel con contorno oscuro
+    hdraw.rounded_rectangle([1, 2, 10, 17], radius=3, fill="#c81e2b", outline="#0f172a", width=1)
+    hdraw.rounded_rectangle([9, 3, 14, 16], radius=2, fill="#f8fafc", outline="#0f172a", width=1)
+    hdraw.rounded_rectangle([13, 3, 24, 16], radius=4, fill="#d99b78", outline="#0f172a", width=1)
+
+    mano_path = OUT_DIR / "durango_mano.png"
+    hand.save(mano_path, format="PNG")
+    return durango_path, mano_path
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     bg_path = generar_bg_plazoleta()
     boss_path = generar_rector_murillo()
+    durango_path, mano_path = generar_durango_y_manos()
     print(f"Generado: {bg_path} ({bg_path.stat().st_size} bytes)")
     print(f"Generado: {boss_path} ({boss_path.stat().st_size} bytes)")
+    print(f"Generado: {durango_path} ({durango_path.stat().st_size} bytes)")
+    print(f"Generado: {mano_path} ({mano_path.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":

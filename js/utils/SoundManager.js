@@ -114,7 +114,20 @@ class SoundManager {
     this.playNoise(0.6, 0.06, 'lowpass', 400, 80);
   }
 
-  playBossHit() { this.playTone(240, 140, 0.06, 'square', 0.04); }
+  hit_boss_sound() {
+    // Sonido retro tipo "¡Ouch!" + golpe grave exclusivo para impactos al Rector Murillo
+    this.playTone(310, 125, 0.14, 'sawtooth', 0.08, 0);
+    this.playTone(215, 75, 0.16, 'triangle', 0.09, 0.02);
+    this.playNoise(0.11, 0.07, 'lowpass', 360, 90);
+  }
+
+  playBossHit() {
+    this.hit_boss_sound();
+  }
+
+  playProjectileHit() {
+    this.playTone(260, 160, 0.05, 'square', 0.035);
+  }
 
   playGameOver(victory = false) {
     if (victory) {

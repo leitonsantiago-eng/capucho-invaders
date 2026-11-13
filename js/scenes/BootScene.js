@@ -26,6 +26,8 @@ export class BootScene extends Phaser.Scene {
 
     this.load.image('rector_murillo', `./${GAME_CONFIG.MURILLO_IMAGE}`);
     this.load.image('bg_plazoleta', `./${GAME_CONFIG.PLAZOLETA_BG_IMAGE}`);
+    this.load.image('durango', './assets/images/durango.png');
+    this.load.image('durango_mano', './assets/images/durango_mano.png');
   }
 
   create() {
