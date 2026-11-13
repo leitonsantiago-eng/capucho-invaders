@@ -279,7 +279,7 @@ export class GameScene extends Phaser.Scene {
     this.bossDir = 1;
 
     const murilloKey = this.registry.get('murilloTextureKey') || 'boss_murillo_placeholder';
-    this.boss = this.bossGroup.create(GAME_CONFIG.WIDTH / 2, 134, murilloKey);
+    this.boss = this.bossGroup.create(GAME_CONFIG.WIDTH / 2, 150, murilloKey);
     this.boss.setDisplaySize(136, 112);
     this.boss.body.setSize(this.boss.width * 0.88, this.boss.height * 0.88);
     this.boss.setDepth(14);
@@ -287,7 +287,7 @@ export class GameScene extends Phaser.Scene {
 
     if (murilloKey === 'boss_murillo_placeholder') {
       this.bossLabel = this.add
-        .text(this.boss.x, this.boss.y + 38, 'PROF. MURILLO', {
+        .text(this.boss.x, this.boss.y + 38, 'RECTOR MURILLO', {
           fontFamily: '"Courier New", monospace',
           fontSize: '12px',
           fontStyle: 'bold',
@@ -297,9 +297,9 @@ export class GameScene extends Phaser.Scene {
         .setDepth(15);
     }
 
-    // Barra de vida superior del Profesor Murillo
+    // Barra de vida superior del Rector Murillo
     this.add
-      .text(GAME_CONFIG.WIDTH / 2, 57, 'JEFE FINAL: PROFESOR MURILLO', {
+      .text(GAME_CONFIG.WIDTH / 2, 57, 'JEFE FINAL: RECTOR MURILLO', {
         fontFamily: '"Courier New", monospace',
         fontSize: '13px',
         fontStyle: 'bold',
@@ -315,21 +315,24 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5)
       .setDepth(32);
 
+    // Globo de diálogo debajo del jefe (y + 74) para no superponerse con la barra de vida superior
     this.bossTauntText = this.add
-      .text(this.boss.x, this.boss.y - 66, '', {
+      .text(this.boss.x, this.boss.y + 74, '', {
         fontFamily: '"Courier New", monospace',
-        fontSize: '12px',
+        fontSize: '13px',
         fontStyle: 'bold',
         color: '#fef08a',
-        backgroundColor: '#0f172ae0',
-        padding: { x: 8, y: 4 }
+        backgroundColor: '#0f172aee',
+        stroke: '#e6192e',
+        strokeThickness: 2,
+        padding: { x: 10, y: 5 }
       })
       .setOrigin(0.5)
-      .setDepth(20)
+      .setDepth(35)
       .setVisible(false);
 
     soundManager.playBossRoar();
-    this.showBossTaunt('¡Es hora de sustentar el Proyecto Final!');
+    this.showBossTaunt(Phaser.Utils.Array.GetRandom(BOSS_TAUNTS));
 
     // Ataque principal: Proyectos Finales masivos + abanico de parciales
     this.bossAttackTimer = this.time.addEvent({
@@ -347,7 +350,10 @@ export class GameScene extends Phaser.Scene {
 
   showBossTaunt(msg) {
     if (!this.bossTauntText || !this.boss || !this.boss.active) return;
-    this.bossTauntText.setText(msg).setVisible(true);
+    this.bossTauntText
+      .setPosition(Phaser.Math.Clamp(this.boss.x, 165, GAME_CONFIG.WIDTH - 165), this.boss.y + 74)
+      .setText(msg)
+      .setVisible(true);
     this.time.delayedCall(2600, () => {
       if (this.bossTauntText) this.bossTauntText.setVisible(false);
     });
@@ -525,7 +531,7 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Bala jugador vs Jefe Profesor Murillo
+    // Bala jugador vs Jefe Rector Murillo
     this.physics.add.overlap(this.playerBullets, this.bossGroup, (bullet, boss) => {
       bullet.destroy();
       this.handleBossHit(boss);
@@ -929,7 +935,7 @@ export class GameScene extends Phaser.Scene {
     const speed = hpRatio < 0.3 ? 340 : hpRatio < 0.65 ? 275 : 220;
 
     this.boss.x += this.bossDir * speed * dt;
-    this.boss.y = 132 + Math.sin(time / 380) * 18;
+    this.boss.y = 150 + Math.sin(time / 380) * 14;
 
     if (this.boss.x >= GAME_CONFIG.WIDTH - 86 && this.bossDir > 0) this.bossDir = -1;
     else if (this.boss.x <= 86 && this.bossDir < 0) this.bossDir = 1;
@@ -939,8 +945,8 @@ export class GameScene extends Phaser.Scene {
     }
     if (this.bossTauntText && this.bossTauntText.visible) {
       this.bossTauntText.setPosition(
-        Phaser.Math.Clamp(this.boss.x, 150, GAME_CONFIG.WIDTH - 150),
-        this.boss.y - 68
+        Phaser.Math.Clamp(this.boss.x, 165, GAME_CONFIG.WIDTH - 165),
+        this.boss.y + 74
       );
     }
   }

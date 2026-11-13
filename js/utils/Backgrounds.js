@@ -227,19 +227,12 @@ function buildRegistro(scene) {
 }
 
 function buildMurillo(scene) {
-  scene.add.rectangle(W / 2, 175, 680, 220, 0x0f2f1f, 0.6).setStrokeStyle(8, 0x5b3a1a, 0.9).setDepth(-20);
-  const chalk = [
-    'NOTA FINAL = 0.4·PF + 0.3·P1 + 0.3·P2',
-    'Entrega: HOY 11:59 PM',
-    'IEEE 830 • UML • Scrum • Pruebas',
-    'Sustentación: INDIVIDUAL'
-  ];
-  chalk.forEach((line, i) => {
-    scene.add
-      .text(110 + (i % 2) * 40, 100 + i * 40, line, { fontFamily: '"Comic Sans MS", "Courier New", cursive', fontSize: '18px', color: '#e2e8f0' })
-      .setAlpha(0.22)
-      .setDepth(-19);
-  });
+  if (scene.textures.exists('bg_plazoleta')) {
+    scene.add.image(W / 2, H / 2, 'bg_plazoleta').setDisplaySize(W, H).setDepth(-25);
+    scene.add.rectangle(W / 2, H / 2, W, H, 0x050814, 0.32).setDepth(-24);
+  } else {
+    scene.add.rectangle(W / 2, 175, 680, 220, 0x0f2f1f, 0.6).setStrokeStyle(8, 0x5b3a1a, 0.9).setDepth(-20);
+  }
 
   const vignette = scene.add.graphics().setDepth(-4);
   vignette.fillGradientStyle(0x7f1d1d, 0x7f1d1d, 0x000000, 0x000000, 0.35, 0.35, 0, 0);

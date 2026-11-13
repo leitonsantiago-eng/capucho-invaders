@@ -6,8 +6,9 @@ export const GAME_CONFIG = {
   STORAGE_KEY: 'capucho_invaders_highscore_v1',
   INITIAL_LIVES: 3,
   MAX_LIVES: 5,
-  // Coloca tu imagen en esta ruta para reemplazar el placeholder del jefe final.
-  MURILLO_IMAGE: 'assets/murillo.png',
+  // Rutas de imágenes 8-bit procesadas (Rector Murillo y Plazoleta de Ingenierías)
+  MURILLO_IMAGE: 'assets/images/rector_murillo.png',
+  PLAZOLETA_BG_IMAGE: 'assets/images/bg_plazoleta.png',
   PAGES_URL: 'https://leitonsantiago-eng.github.io/capucho-invaders/'
 };
 
@@ -29,7 +30,7 @@ export const INTRO_CRAWL = {
   SUBTITLE: 'RESISTENCIA EN MELÉNDEZ',
   PARAGRAPHS: [
     'Son tiempos turbulentos en la sede Meléndez de la Universidad del Valle. El temido Filtro de Cálculo ha diezmado las filas estudiantiles, las iguanas del campus se han rebelado y enjambres de zancudos emergen de El Lago.',
-    'Detrás de todo, una figura legendaria aguarda en el Auditorio Principal: el implacable PROFESOR MURILLO, guardián de los Proyectos Finales, cuya nota nadie ha logrado superar....',
+    'Detrás de todo, una figura legendaria aguarda en la Plazoleta de Ingenierías: el implacable RECTOR MURILLO, guardián de los Proyectos Finales, cuya nota nadie ha logrado superar....',
     'Desde la Escuela de Ingeniería Eléctrica y Electrónica, un escuadrón ágil formado por SANTIAGO, LUIS, DAVID, GARCÉS y ALAN ha construido en secreto un interceptor HTML5 impulsado por Phaser 3.',
     'Armados con metodologías ágiles, tintos de Meléndez y mangos maduros, deben atravesar cinco sectores del campus para salvar el semestre y restaurar la paz en la universidad....'
   ]
@@ -57,13 +58,10 @@ export const PROJECTILES = {
 };
 
 export const BOSS_TAUNTS = [
-  '¡La entrega era ayer a las 11:59 PM!',
-  '¡Esto vale el 40% de la nota!',
-  '¡Sin documentación no hay nota!',
-  '¿Y las pruebas unitarias, jóvenes?',
-  '¡Ese commit no tiene mensaje!',
-  '¡Nos vemos en el habilitable!',
-  '¡Eso no cumple el formato IEEE!'
+  'Cuadren entre ustedes.',
+  'El diálogo es la única salida.',
+  'Aquí no se cancela el semestre.',
+  'La universidad no se detiene.'
 ];
 
 export const LEVELS = [
@@ -165,14 +163,14 @@ export const LEVELS = [
     level: 5,
     type: 'boss',
     theme: 'murillo',
-    title: 'Nivel Final: El Juicio del Profesor Murillo',
-    subtitle: 'Auditorio Principal • Semana de Proyectos Finales',
+    title: 'Nivel Final: El Juicio del Rector Murillo',
+    subtitle: 'Plazoleta de Ingenierías • Batalla Final contra el Rector Murillo',
     previewTexture: 'MURILLO',
-    threat: 'PROFESOR MURILLO — dispara PROYECTOS FINALES masivos',
+    threat: 'RECTOR MURILLO — dispara PROYECTOS FINALES masivos',
     storyLines: [
-      'Has llegado al Auditorio Principal. Las luces parpadean y el tablero se llena de rúbricas imposibles.',
-      'El PROFESOR MURILLO se mueve rápido, resiste muchísimos impactos y lanza PROYECTOS FINALES: destrúyelos con 4 disparos o esquívalos.',
-      'Santiago, Luis, David, Garcés y Alan confían en ti. ¡Es hora de sustentar!'
+      'Has llegado a la Plazoleta de Ingenierías. Las luces parpadean y el campus contiene la respiración.',
+      'El RECTOR MURILLO se mueve rápido, resiste muchísimos impactos y lanza PROYECTOS FINALES: destrúyelos con 4 disparos o esquívalos.',
+      'Santiago, Luis, David, Garcés y Alan confían en ti. ¡Aquí no se cancela el semestre!'
     ],
     refillLivesTo: 3,
     boss: { hp: 90 },

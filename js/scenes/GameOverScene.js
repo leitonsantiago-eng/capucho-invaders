@@ -40,7 +40,7 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const summary = this.victory
-      ? 'Venciste al Profesor Murillo, esquivaste los Proyectos Finales\ny salvaste el semestre en la Universidad del Valle.'
+      ? 'Venciste al Rector Murillo, esquivaste los Proyectos Finales\ny salvaste el semestre en la Universidad del Valle.'
       : `Caíste en el Nivel ${this.levelReached}/${LEVELS.length}.\n¡Tómate un tinto en Meléndez y vuelve al combate!`;
 
     this.add

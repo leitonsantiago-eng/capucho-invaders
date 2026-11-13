@@ -4,22 +4,28 @@ export class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: 'BootScene' });
     this.murilloLoaded = false;
+    this.plazoletaLoaded = false;
   }
 
   preload() {
     this.load.json('spritesData', './assets/data/sprites.json');
 
-    // Si el usuario coloca su propio murillo.png en la raíz o en assets/murillo.png, se cargará automáticamente.
-    this.load.on('filecomplete-image-murillo_custom', () => {
+    this.load.on('filecomplete-image-rector_murillo', () => {
       this.murilloLoaded = true;
     });
+    this.load.on('filecomplete-image-bg_plazoleta', () => {
+      this.plazoletaLoaded = true;
+    });
     this.load.on('loaderror', (file) => {
-      if (file.key === 'murillo_custom') {
+      if (file.key === 'rector_murillo') {
         this.murilloLoaded = false;
+      } else if (file.key === 'bg_plazoleta') {
+        this.plazoletaLoaded = false;
       }
     });
 
-    this.load.image('murillo_custom', `./${GAME_CONFIG.MURILLO_IMAGE}`);
+    this.load.image('rector_murillo', `./${GAME_CONFIG.MURILLO_IMAGE}`);
+    this.load.image('bg_plazoleta', `./${GAME_CONFIG.PLAZOLETA_BG_IMAGE}`);
   }
 
   create() {
@@ -32,8 +38,9 @@ export class BootScene extends Phaser.Scene {
     this.createBulletAndShieldTextures();
     this.createMurilloPlaceholderTexture();
 
-    // Guardar bandera global para saber si existe imagen personalizada de Murillo
-    this.registry.set('murilloTextureKey', this.murilloLoaded ? 'murillo_custom' : 'boss_murillo_placeholder');
+    // Guardar textura del Rector Murillo (imagen 8-bit procesada o placeholder de respaldo)
+    const hasMurillo = this.murilloLoaded && this.textures.exists('rector_murillo');
+    this.registry.set('murilloTextureKey', hasMurillo ? 'rector_murillo' : 'boss_murillo_placeholder');
 
     this.scene.start('IntroScene');
   }
@@ -102,7 +109,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   createMurilloPlaceholderTexture() {
-    // Rectángulo/círculo distintivo para el Jefe Final "Profesor Murillo"
+    // Rectángulo/círculo distintivo para el Jefe Final "Rector Murillo"
     const w = 136;
     const h = 112;
     const gfx = this.make.graphics({ x: 0, y: 0, add: false });

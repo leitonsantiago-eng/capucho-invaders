@@ -73,7 +73,7 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    this.createMenuButton(cx, 380, 355, 44, '💀  RETO DIRECTO: PROF. MURILLO', 0x7c2d12, () => {
+    this.createMenuButton(cx, 380, 355, 44, '💀  RETO DIRECTO: RECTOR MURILLO', 0x7c2d12, () => {
       soundManager.ensureContext();
       soundManager.playPowerUp();
       transitionTo(this, 'StoryScene', {
