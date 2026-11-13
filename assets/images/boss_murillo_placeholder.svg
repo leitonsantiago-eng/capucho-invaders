@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 272 224" width="272" height="224">
+  <rect x="8" y="8" width="256" height="208" rx="28" fill="#1e1b4b" stroke="#ffd700" stroke-width="8"/>
+  <circle cx="136" cy="92" r="64" fill="#e6192e" stroke="#ffffff" stroke-width="6"/>
+  <rect x="92" y="76" width="36" height="22" fill="#0f172a" stroke="#00e5ff" stroke-width="4"/>
+  <rect x="144" y="76" width="36" height="22" fill="#0f172a" stroke="#00e5ff" stroke-width="4"/>
+  <rect x="128" y="84" width="16" height="6" fill="#0f172a"/>
+  <rect x="112" y="114" width="48" height="8" fill="#f8fafc"/>
+  <rect x="28" y="164" width="216" height="40" rx="10" fill="#ffd700"/>
+  <text x="136" y="191" font-family="Courier New, monospace" font-size="22" font-weight="bold" fill="#0f172a" text-anchor="middle">PROF. MURILLO</text>
+</svg>

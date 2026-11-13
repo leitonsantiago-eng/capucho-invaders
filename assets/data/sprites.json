@@ -1,0 +1,268 @@
+{
+  "player_ship": {
+    "name": "Nave Defensora Univalle",
+    "pixel": 3,
+    "palette": { "R": "#e6192e", "W": "#f4f6fc", "C": "#00e5ff", "Y": "#ffd700" },
+    "frames": [[
+      "......WW......",
+      ".....WRRW.....",
+      ".....WCCW.....",
+      "....WRRRRW....",
+      "..WWRRRRRRWW..",
+      ".WRRRRRRRRRRW.",
+      "WRRWWWRRWWWRRW",
+      "WRRRRRRRRRRRRW",
+      "WR..RRRRRR..RW",
+      "....YY..YY...."
+    ]]
+  },
+  "enemy_calc": {
+    "name": "Integral Triple (Nivel 1)",
+    "pixel": 3,
+    "palette": { "C": "#00e5ff", "W": "#ffffff" },
+    "frames": [
+      [
+        "..CCCCCCCC..",
+        ".CCWWWWWWCC.",
+        "CCWCCWWCCWCC",
+        "CCWWWWWWWWCC",
+        "CC.CCCCCC.CC",
+        ".CC..CC..CC.",
+        "..CC.CC.CC..",
+        ".CC......CC."
+      ],
+      [
+        "..CCCCCCCC..",
+        ".CCWWWWWWCC.",
+        "CCWCCWWCCWCC",
+        "CCWWWWWWWWCC",
+        "CC.CCCCCC.CC",
+        ".CC..CC..CC.",
+        ".CC..CC..CC.",
+        "CC........CC"
+      ]
+    ]
+  },
+  "enemy_iguana": {
+    "name": "Iguana Táctica (Nivel 2)",
+    "pixel": 3,
+    "palette": { "G": "#39ff14", "L": "#16a34a", "O": "#ff7b00", "Y": "#ffd700" },
+    "frames": [
+      [
+        "..O..OO..O..",
+        ".GGGGGGGGGG.",
+        "GGYYGGGGYYGG",
+        "GGGGGGGGGGGG",
+        ".GGGLLLLGGG.",
+        "GG..GGGG..GG",
+        "G...G..G...G",
+        "....G..G...."
+      ],
+      [
+        "..O..OO..O..",
+        ".GGGGGGGGGG.",
+        "GGYYGGGGYYGG",
+        "GGGGGGGGGGGG",
+        ".GGGLLLLGGG.",
+        "..GGGGGGGG..",
+        ".G..G..G..G.",
+        "G..........G"
+      ]
+    ]
+  },
+  "enemy_zancudo": {
+    "name": "Zancudo de El Lago (Nivel 3)",
+    "pixel": 3,
+    "palette": { "W": "#bae6fd", "B": "#9ca3af", "S": "#f8fafc", "R": "#ff1e56", "P": "#f87171" },
+    "frames": [
+      [
+        "WW........WW",
+        ".WW......WW.",
+        "..WWRBBRWW..",
+        "....BBBB....",
+        "...BSBBSB...",
+        "....BSSB....",
+        "...B.PP.B...",
+        ".....PP....."
+      ],
+      [
+        "............",
+        "............",
+        "....RBBR....",
+        "WWW.BBBB.WWW",
+        ".WWBSBBSBWW.",
+        "....BSSB....",
+        "...B.PP.B...",
+        ".....PP....."
+      ]
+    ]
+  },
+  "enemy_admin": {
+    "name": "Dron de Registro Académico (Nivel 4)",
+    "pixel": 3,
+    "palette": { "P": "#c026d3", "R": "#ff1e56", "W": "#f8fafc" },
+    "frames": [
+      [
+        "...PPPPPP...",
+        ".PPPPPPPPPP.",
+        "PPWWPPPPWWPP",
+        "PPRRPPPPRRPP",
+        "PPPPPPPPPPPP",
+        ".PP.PPPP.PP.",
+        "PP...PP...PP",
+        ".P........P."
+      ],
+      [
+        "...PPPPPP...",
+        ".PPPPPPPPPP.",
+        "PPWWPPPPWWPP",
+        "PPRRPPPPRRPP",
+        "PPPPPPPPPPPP",
+        ".PP.PPPP.PP.",
+        ".PP..PP..PP.",
+        "P..........P"
+      ]
+    ]
+  },
+  "enemy_ufo": {
+    "name": "Nave Acta de Cancelación",
+    "pixel": 4,
+    "palette": { "Y": "#ffd700", "R": "#ff0055", "W": "#ffffff" },
+    "frames": [[
+      "....YYYYYY....",
+      "..YYRRRRRRYY..",
+      ".YRRRRRRRRRRY.",
+      "YRRWWRRRRWWRRY",
+      "RRRRRRRRRRRRRR",
+      ".RRRRYYYYRRRR.",
+      "..RR..RR..RR.."
+    ]]
+  },
+  "proj_parcial": {
+    "name": "Proyectil: Parcial con nota roja",
+    "pixel": 2,
+    "palette": { "W": "#ffffff", "G": "#94a3b8", "R": "#ef4444" },
+    "frames": [[
+      "WWWWWWW",
+      "WGGGGWW",
+      "WWWWWWW",
+      "WGGGWWW",
+      "WWWRRRW",
+      "WWRWWWR",
+      "WWRWWWR",
+      "WWWRRRW",
+      "WWWWWWW"
+    ]]
+  },
+  "proj_mango": {
+    "name": "Proyectil: Mango lanzado",
+    "pixel": 2,
+    "palette": { "O": "#f59e0b", "Y": "#fde047", "L": "#16a34a" },
+    "frames": [[
+      "..L...",
+      ".OOO..",
+      "OOOYO.",
+      "OOOOOO",
+      "OOOOOO",
+      ".OOOO.",
+      "..OO.."
+    ]]
+  },
+  "proj_picadura": {
+    "name": "Proyectil: Picadura de zancudo",
+    "pixel": 2,
+    "palette": { "R": "#ff1e56", "P": "#fca5a5" },
+    "frames": [[
+      ".R.",
+      "RRR",
+      ".R.",
+      ".R.",
+      ".R.",
+      ".P.",
+      ".P."
+    ]]
+  },
+  "proj_error": {
+    "name": "Proyectil: Error 503",
+    "pixel": 2,
+    "palette": { "R": "#ef4444", "W": "#ffffff" },
+    "frames": [[
+      "RRRRRRR",
+      "RWRRRWR",
+      "RRWRWRR",
+      "RRRWRRR",
+      "RRWRWRR",
+      "RWRRRWR",
+      "RRRRRRR"
+    ]]
+  },
+  "proj_proyecto": {
+    "name": "Proyectil masivo: Proyecto Final",
+    "pixel": 3,
+    "palette": { "Y": "#facc15", "B": "#1d4ed8", "W": "#f8fafc", "K": "#64748b", "R": "#ef4444" },
+    "frames": [[
+      "....YYYY......",
+      "YYYYYYYYYYYYYY",
+      "YBBBBBBBBBBBBY",
+      "YBWWWWWWWWWWBY",
+      "YBWKKKKKKKKWBY",
+      "YBWWWWWWWWWWBY",
+      "YBWKKKKKKWWWBY",
+      "YBWWWWWWWWWWBY",
+      "YBWKKKKKKKKWBY",
+      "YBWWWWWWWWWWBY",
+      "YBWWWRRRRWWWBY",
+      "YBWWRWWWWRWWBY",
+      "YBWWRWWWWRWWBY",
+      "YBWWWRRRRWWWBY",
+      "YBWWWWWWWWWWBY",
+      "YBBBBBBBBBBBBY",
+      "YYYYYYYYYYYYYY"
+    ]]
+  },
+  "mango_verde": {
+    "name": "Mango verde (obstáculo)",
+    "pixel": 3,
+    "palette": { "L": "#15803d", "G": "#65a30d", "D": "#a3e635" },
+    "frames": [[
+      "...L...",
+      "..LL...",
+      ".GGGG..",
+      "GGGGGG.",
+      "GGDGGGG",
+      "GGGGGGG",
+      "GGGGGGG",
+      ".GGGGG.",
+      "..GGG.."
+    ]]
+  },
+  "mango_maduro": {
+    "name": "Mango maduro (power-up +1 vida)",
+    "pixel": 3,
+    "palette": { "L": "#15803d", "O": "#f59e0b", "R": "#ef4444", "Y": "#fde047" },
+    "frames": [[
+      "...L...",
+      "..LL...",
+      ".OOOO..",
+      "OOOOOR.",
+      "OOYOORR",
+      "OOOOORR",
+      "OOOOOOR",
+      ".OOOOO.",
+      "..OOO.."
+    ]]
+  },
+  "powerup_tinto": {
+    "name": "Tinto de Meléndez (disparo doble)",
+    "pixel": 3,
+    "palette": { "W": "#f8fafc", "B": "#451a03", "T": "#f59e0b" },
+    "frames": [[
+      "..WWWW..",
+      ".WBBBBW.",
+      ".WBBBBW.",
+      ".WTTTTW.",
+      "..TTTT..",
+      "..TTTT.."
+    ]]
+  }
+}

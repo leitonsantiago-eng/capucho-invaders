@@ -1,5 +1,7 @@
-import { GAME_CONFIG, COLORS, LEVELS } from '../config/constants.js';
+import { GAME_CONFIG, COLORS, LEVELS, PROJECTILES, BOSS_TAUNTS } from '../config/constants.js';
 import { soundManager } from '../utils/SoundManager.js';
+import { createLevelBackground } from '../utils/Backgrounds.js';
+import { revealScene, transitionTo } from '../utils/Transitions.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -9,8 +11,12 @@ export class GameScene extends Phaser.Scene {
   init(data) {
     this.levelNumber = data?.level || 1;
     this.score = data?.score || 0;
-    this.lives = data?.lives ?? GAME_CONFIG.INITIAL_LIVES;
     this.levelConfig = LEVELS.find((lvl) => lvl.level === this.levelNumber) || LEVELS[0];
+
+    const incomingLives = data?.lives ?? GAME_CONFIG.INITIAL_LIVES;
+    this.lives = this.levelConfig.refillLivesTo
+      ? Math.max(incomingLives, this.levelConfig.refillLivesTo)
+      : incomingLives;
 
     this.isPaused = false;
     this.isLevelEnding = false;
@@ -22,52 +28,62 @@ export class GameScene extends Phaser.Scene {
     this.nextStepSoundAt = 0;
     this.touchControlsVisible = true;
     this.touchState = { left: false, right: false, shoot: false };
+
+    this.boss = null;
+    this.bossHp = 0;
+    this.bossMaxHp = 0;
+    this.bossDir = 1;
   }
 
   create() {
     this.cameras.main.setBackgroundColor(COLORS.BG);
+    revealScene(this);
     this.input.addPointer(3);
 
-    this.createStarfield();
+    this.bg = createLevelBackground(this, this.levelConfig.theme);
     this.createHUD();
     this.createPlayer();
     this.createBunkers();
     this.createGroups();
-    this.spawnEnemies();
+
+    if (this.levelConfig.type === 'boss') {
+      this.spawnFinalBoss();
+    } else {
+      this.spawnEnemies();
+      this.enemyFireTimer = this.time.addEvent({
+        delay: this.levelConfig.fireRateMs,
+        loop: true,
+        callback: () => this.fireEnemyBullet()
+      });
+    }
+
+    if (this.levelConfig.diveEveryMs) {
+      this.diveTimer = this.time.addEvent({
+        delay: this.levelConfig.diveEveryMs,
+        loop: true,
+        callback: () => this.launchKamikazeEnemy()
+      });
+    }
+
+    if (this.levelConfig.mangos) {
+      this.mangoTimer = this.time.addEvent({
+        delay: this.levelConfig.mangos.rateMs,
+        loop: true,
+        callback: () => this.spawnFallingMango()
+      });
+    }
+
+    if (this.levelConfig.spawnUfo) {
+      this.ufoTimer = this.time.addEvent({
+        delay: 8000,
+        loop: true,
+        callback: () => this.spawnUfoShip()
+      });
+    }
+
     this.setupInputs();
     this.createTouchControls();
     this.setupCollisions();
-
-    // Temporizador de disparos enemigos
-    this.enemyFireTimer = this.time.addEvent({
-      delay: this.levelConfig.fireRateMs,
-      loop: true,
-      callback: () => this.fireEnemyBullet()
-    });
-
-    // Nave nodriza en Nivel 3
-    if (this.levelConfig.spawnBoss) {
-      this.bossTimer = this.time.addEvent({
-        delay: 7500,
-        loop: true,
-        callback: () => this.spawnBossShip()
-      });
-    }
-  }
-
-  createStarfield() {
-    this.stars = [];
-    for (let i = 0; i < 60; i += 1) {
-      const star = this.add.circle(
-        Phaser.Math.Between(0, GAME_CONFIG.WIDTH),
-        Phaser.Math.Between(48, GAME_CONFIG.HEIGHT - 20),
-        Phaser.Math.FloatBetween(0.9, 2),
-        0xffffff,
-        Phaser.Math.FloatBetween(0.18, 0.75)
-      );
-      star.speed = Phaser.Math.FloatBetween(18, 52);
-      this.stars.push(star);
-    }
   }
 
   createHUD() {
@@ -77,9 +93,9 @@ export class GameScene extends Phaser.Scene {
     hudBg.setStrokeStyle(1, 0x1e293b);
 
     this.scoreText = this.add
-      .text(16, 24, `PTS: ${this.score}`, {
+      .text(14, 24, `PTS: ${this.score}`, {
         fontFamily: '"Courier New", monospace',
-        fontSize: '16px',
+        fontSize: '15px',
         fontStyle: 'bold',
         color: COLORS.STAR_WARS_YELLOW
       })
@@ -88,18 +104,18 @@ export class GameScene extends Phaser.Scene {
 
     const highScore = Math.max(this.score, Number(localStorage.getItem(GAME_CONFIG.STORAGE_KEY) || 0));
     this.highScoreText = this.add
-      .text(175, 24, `MAX: ${highScore}`, {
+      .text(160, 24, `MAX: ${highScore}`, {
         fontFamily: '"Courier New", monospace',
-        fontSize: '15px',
+        fontSize: '14px',
         color: COLORS.CYAN
       })
       .setOrigin(0, 0.5)
       .setDepth(31);
 
     this.levelText = this.add
-      .text(GAME_CONFIG.WIDTH / 2, 24, `NIVEL ${this.levelConfig.level}/3`, {
+      .text(GAME_CONFIG.WIDTH / 2, 24, `NIVEL ${this.levelConfig.level}/${LEVELS.length}`, {
         fontFamily: '"Courier New", monospace',
-        fontSize: '16px',
+        fontSize: '15px',
         fontStyle: 'bold',
         color: COLORS.WHITE
       })
@@ -107,34 +123,31 @@ export class GameScene extends Phaser.Scene {
       .setDepth(31);
 
     this.livesText = this.add
-      .text(565, 24, this.formatLives(), {
+      .text(552, 24, this.formatLives(), {
         fontFamily: '"Courier New", monospace',
-        fontSize: '15px',
+        fontSize: '14px',
         fontStyle: 'bold',
         color: '#fb7185'
       })
       .setOrigin(0.5)
       .setDepth(31);
 
-    // Botón alternar controles táctiles
     this.touchToggleBtn = this.createHudButton(666, 24, '📱', () => {
       this.touchControlsVisible = !this.touchControlsVisible;
       this.updateTouchVisibility();
     });
 
-    // Botón sonido
     this.muteBtn = this.createHudButton(716, 24, soundManager.muted ? '🔇' : '🔊', () => {
       const muted = soundManager.toggleMute();
       this.muteBtn.setText(muted ? '🔇' : '🔊');
     });
 
-    // Botón pausa
     this.pauseBtn = this.createHudButton(766, 24, '⏸', () => this.togglePause());
 
     this.pauseBanner = this.add
       .text(GAME_CONFIG.WIDTH / 2, GAME_CONFIG.HEIGHT / 2, 'PAUSA\n(Presiona P o ⏸ para continuar)', {
         fontFamily: '"Courier New", monospace',
-        fontSize: '26px',
+        fontSize: '24px',
         fontStyle: 'bold',
         color: COLORS.STAR_WARS_YELLOW,
         backgroundColor: '#0f172aee',
@@ -208,47 +221,188 @@ export class GameScene extends Phaser.Scene {
   }
 
   createGroups() {
-    this.playerBullets = this.physics.add.group({ maxSize: 24 });
-    this.enemyBullets = this.physics.add.group({ maxSize: 40 });
+    this.playerBullets = this.physics.add.group({ maxSize: 32 });
+    this.enemyBullets = this.physics.add.group({ maxSize: 55 });
     this.enemies = this.physics.add.group();
     this.powerUps = this.physics.add.group();
+    this.mangos = this.physics.add.group();
+    this.ufoGroup = this.physics.add.group();
     this.bossGroup = this.physics.add.group();
   }
 
   spawnEnemies() {
-    const { rows, cols, enemyTexture } = this.levelConfig;
+    const { cols, enemyTypes, rowTypes } = this.levelConfig;
+    const rows = rowTypes.length;
     const spacingX = 58;
     const spacingY = 44;
     const totalWidth = (cols - 1) * spacingX;
     const startX = (GAME_CONFIG.WIDTH - totalWidth) / 2;
-    const startY = 84;
+    const startY = 86;
 
     this.initialEnemyCount = rows * cols;
 
     for (let r = 0; r < rows; r += 1) {
+      const def = enemyTypes[rowTypes[r]] || enemyTypes[0];
       for (let c = 0; c < cols; c += 1) {
         const x = startX + c * spacingX;
         const y = startY + r * spacingY;
-        const enemy = this.enemies.create(x, y, enemyTexture);
-        enemy.setData('points', this.levelConfig.pointsPerEnemy + (rows - r) * 10);
+        const enemy = this.enemies.create(x, y, def.texture);
+        if (this.anims.exists(`${def.texture}_anim`)) {
+          enemy.play(`${def.texture}_anim`);
+        }
+        enemy.setData('points', def.points + (rows - r) * 10);
+        enemy.setData('projectile', def.projectile);
+        enemy.setData('diving', false);
         enemy.body.setAllowGravity(false);
         enemy.setDepth(8);
       }
     }
   }
 
-  spawnBossShip() {
-    if (this.isPaused || this.isLevelEnding || this.bossGroup.countActive(true) > 0) return;
+  spawnUfoShip() {
+    if (this.isPaused || this.isLevelEnding || this.ufoGroup.countActive(true) > 0) return;
 
     const fromLeft = Math.random() < 0.5;
     const startX = fromLeft ? -35 : GAME_CONFIG.WIDTH + 35;
-    const speedX = fromLeft ? 150 : -150;
+    const speedX = fromLeft ? 155 : -155;
 
-    const boss = this.bossGroup.create(startX, 66, 'enemy_boss');
-    boss.setVelocityX(speedX);
-    boss.setData('hp', 3);
-    boss.setData('points', 500);
-    boss.setDepth(12);
+    const ufo = this.ufoGroup.create(startX, 68, 'enemy_ufo');
+    ufo.setVelocityX(speedX);
+    ufo.setData('hp', 3);
+    ufo.setData('points', 500);
+    ufo.setDepth(12);
+  }
+
+  spawnFinalBoss() {
+    this.bossMaxHp = this.levelConfig.boss?.hp || 90;
+    this.bossHp = this.bossMaxHp;
+    this.bossDir = 1;
+
+    const murilloKey = this.registry.get('murilloTextureKey') || 'boss_murillo_placeholder';
+    this.boss = this.bossGroup.create(GAME_CONFIG.WIDTH / 2, 134, murilloKey);
+    this.boss.setDisplaySize(136, 112);
+    this.boss.body.setSize(this.boss.width * 0.88, this.boss.height * 0.88);
+    this.boss.setDepth(14);
+    this.boss.body.setAllowGravity(false);
+
+    if (murilloKey === 'boss_murillo_placeholder') {
+      this.bossLabel = this.add
+        .text(this.boss.x, this.boss.y + 38, 'PROF. MURILLO', {
+          fontFamily: '"Courier New", monospace',
+          fontSize: '12px',
+          fontStyle: 'bold',
+          color: '#0f172a'
+        })
+        .setOrigin(0.5)
+        .setDepth(15);
+    }
+
+    // Barra de vida superior del Profesor Murillo
+    this.add
+      .text(GAME_CONFIG.WIDTH / 2, 57, 'JEFE FINAL: PROFESOR MURILLO', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: COLORS.STAR_WARS_YELLOW
+      })
+      .setOrigin(0.5)
+      .setDepth(32);
+
+    this.bossBarBg = this.add.rectangle(GAME_CONFIG.WIDTH / 2, 74, 420, 12, 0x1e293b, 0.95).setDepth(31);
+    this.bossBarBg.setStrokeStyle(1, 0xffd700);
+    this.bossBarFill = this.add
+      .rectangle(GAME_CONFIG.WIDTH / 2 - 208, 74, 416, 8, 0xe6192e, 1)
+      .setOrigin(0, 0.5)
+      .setDepth(32);
+
+    this.bossTauntText = this.add
+      .text(this.boss.x, this.boss.y - 66, '', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: '#fef08a',
+        backgroundColor: '#0f172ae0',
+        padding: { x: 8, y: 4 }
+      })
+      .setOrigin(0.5)
+      .setDepth(20)
+      .setVisible(false);
+
+    soundManager.playBossRoar();
+    this.showBossTaunt('¡Es hora de sustentar el Proyecto Final!');
+
+    // Ataque principal: Proyectos Finales masivos + abanico de parciales
+    this.bossAttackTimer = this.time.addEvent({
+      delay: 1350,
+      loop: true,
+      callback: () => this.fireBossAttack()
+    });
+
+    this.bossTauntTimer = this.time.addEvent({
+      delay: 4600,
+      loop: true,
+      callback: () => this.showBossTaunt(Phaser.Utils.Array.GetRandom(BOSS_TAUNTS))
+    });
+  }
+
+  showBossTaunt(msg) {
+    if (!this.bossTauntText || !this.boss || !this.boss.active) return;
+    this.bossTauntText.setText(msg).setVisible(true);
+    this.time.delayedCall(2600, () => {
+      if (this.bossTauntText) this.bossTauntText.setVisible(false);
+    });
+  }
+
+  fireBossAttack() {
+    if (this.isPaused || this.isLevelEnding || !this.boss || !this.boss.active) return;
+
+    const hpRatio = this.bossHp / this.bossMaxHp;
+    const roll = Math.random();
+
+    if (roll < 0.52) {
+      // Disparo masivo: "PROYECTO FINAL"
+      this.spawnEnemyProjectile(this.boss.x, this.boss.y + 46, 'proyecto', 235);
+      if (hpRatio < 0.45) {
+        this.spawnEnemyProjectile(this.boss.x - 42, this.boss.y + 40, 'parcial', 260);
+        this.spawnEnemyProjectile(this.boss.x + 42, this.boss.y + 40, 'parcial', 260);
+      }
+    } else {
+      // Ráfaga en abanico de parciales con notas rojas
+      [-90, 0, 90].forEach((vx) => {
+        const b = this.spawnEnemyProjectile(this.boss.x, this.boss.y + 44, 'parcial', 270);
+        if (b) b.setVelocityX(vx);
+      });
+    }
+  }
+
+  launchKamikazeEnemy() {
+    if (this.isPaused || this.isLevelEnding) return;
+    const candidates = this.enemies
+      .getChildren()
+      .filter((e) => e.active && !e.getData('diving') && e.texture.key === 'enemy_zancudo');
+
+    if (candidates.length === 0) return;
+    const zancudo = Phaser.Utils.Array.GetRandom(candidates);
+    zancudo.setData('diving', true);
+
+    const dx = this.player.x - zancudo.x;
+    const dy = Math.max(120, this.player.y - zancudo.y);
+    const len = Math.hypot(dx, dy);
+    zancudo.setVelocity((dx / len) * 210, (dy / len) * 210);
+    soundManager.playEnemyShoot('picadura');
+  }
+
+  spawnFallingMango() {
+    if (this.isPaused || this.isLevelEnding) return;
+    const isRipe = Math.random() < (this.levelConfig.mangos?.ripeChance ?? 0.3);
+    const key = isRipe ? 'mango_maduro' : 'mango_verde';
+    const x = Phaser.Math.Between(40, GAME_CONFIG.WIDTH - 40);
+
+    const mango = this.mangos.create(x, 54, key);
+    mango.setData('ripe', isRipe);
+    mango.setVelocityY(isRipe ? 135 : 175);
+    mango.setAngularVelocity(isRipe ? 60 : -110);
+    mango.setDepth(11);
   }
 
   setupInputs() {
@@ -350,28 +504,59 @@ export class GameScene extends Phaser.Scene {
   }
 
   setupCollisions() {
-    // Bala del jugador vs enemigos
+    // Bala jugador vs enemigos comunes
     this.physics.add.overlap(this.playerBullets, this.enemies, (bullet, enemy) => {
       bullet.destroy();
       this.handleEnemyHit(enemy);
     });
 
-    // Bala del jugador vs Boss
+    // Bala jugador vs UFO
+    this.physics.add.overlap(this.playerBullets, this.ufoGroup, (bullet, ufo) => {
+      bullet.destroy();
+      const hp = (ufo.getData('hp') || 1) - 1;
+      ufo.setData('hp', hp);
+      ufo.setTintFill(0xffffff);
+      this.time.delayedCall(60, () => { if (ufo.active) ufo.clearTint(); });
+      if (hp <= 0) {
+        this.addScore(ufo.getData('points') || 500);
+        this.spawnExplosionParticles(ufo.x, ufo.y, 0xffd700);
+        soundManager.playExplosion();
+        ufo.destroy();
+      }
+    });
+
+    // Bala jugador vs Jefe Profesor Murillo
     this.physics.add.overlap(this.playerBullets, this.bossGroup, (bullet, boss) => {
       bullet.destroy();
-      const hp = (boss.getData('hp') || 1) - 1;
-      boss.setData('hp', hp);
-      boss.setTintFill(0xffffff);
-      this.time.delayedCall(70, () => {
-        if (boss.active) boss.clearTint();
-      });
+      this.handleBossHit(boss);
+    });
+
+    // Bala jugador vs Proyectiles destructibles ("Proyectos Finales")
+    this.physics.add.overlap(this.playerBullets, this.enemyBullets, (pBullet, eBullet) => {
+      if (!eBullet.getData('destructible')) return;
+      pBullet.destroy();
+      const hp = (eBullet.getData('hp') || 1) - 1;
+      eBullet.setData('hp', hp);
+      eBullet.setTintFill(0xffffff);
+      this.time.delayedCall(60, () => { if (eBullet.active) eBullet.clearTint(); });
+      soundManager.playBossHit();
 
       if (hp <= 0) {
-        this.addScore(boss.getData('points') || 500);
-        this.spawnExplosionParticles(boss.x, boss.y, 0xffd700);
+        this.addScore(80);
+        this.spawnExplosionParticles(eBullet.x, eBullet.y, 0xfacc15);
         soundManager.playExplosion();
-        boss.destroy();
+        eBullet.destroy();
       }
+    });
+
+    // Balas jugador vs Mangos (puedes destruir mangos verdes; si disparas a uno maduro también explota sin curar)
+    this.physics.add.overlap(this.playerBullets, this.mangos, (bullet, mango) => {
+      bullet.destroy();
+      const isRipe = mango.getData('ripe');
+      this.spawnExplosionParticles(mango.x, mango.y, isRipe ? 0xf59e0b : 0x65a30d);
+      soundManager.playSplat();
+      if (!isRipe) this.addScore(25);
+      mango.destroy();
     });
 
     // Balas vs Búnkeres
@@ -379,13 +564,10 @@ export class GameScene extends Phaser.Scene {
       bullet.destroy();
       block.destroy();
     });
-
     this.physics.add.overlap(this.enemyBullets, this.bunkers, (bullet, block) => {
-      bullet.destroy();
+      if (!bullet.getData('massive')) bullet.destroy();
       block.destroy();
     });
-
-    // Enemigos vs Búnkeres
     this.physics.add.overlap(this.enemies, this.bunkers, (_, block) => {
       block.destroy();
     });
@@ -396,10 +578,37 @@ export class GameScene extends Phaser.Scene {
       this.handlePlayerHit();
     });
 
-    // Enemigo choca directamente contra Jugador
-    this.physics.add.overlap(this.enemies, this.player, () => {
-      this.lives = 0;
-      this.handlePlayerHit();
+    // Mango vs Jugador (Maduro = +1 vida, Verde = daño)
+    this.physics.add.overlap(this.player, this.mangos, (_, mango) => {
+      const isRipe = mango.getData('ripe');
+      mango.destroy();
+      if (isRipe) {
+        soundManager.playHeal();
+        if (this.lives < GAME_CONFIG.MAX_LIVES) {
+          this.lives += 1;
+          this.livesText.setText(this.formatLives());
+        }
+        this.addScore(120);
+        this.showFloatingBanner('🥭 MANGO MADURO: +1 VIDA y +120 PTS');
+      } else {
+        soundManager.playSplat();
+        this.showFloatingBanner('🥭 ¡MANGO VERDE EN LA CABEZA!');
+        this.handlePlayerHit();
+      }
+    });
+
+    // Enemigo choca contra Jugador
+    this.physics.add.overlap(this.enemies, this.player, (_, enemy) => {
+      if (enemy.getData('diving')) {
+        enemy.destroy();
+        this.handlePlayerHit();
+        if (this.enemies.countActive(true) === 0 && !this.isLevelEnding) {
+          this.completeLevel();
+        }
+      } else {
+        this.lives = 0;
+        this.handlePlayerHit();
+      }
     });
 
     // Power-up Tinto vs Jugador
@@ -418,8 +627,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnExplosionParticles(enemy.x, enemy.y, 0x00e5ff);
     soundManager.playExplosion();
 
-    // 10% de probabilidad de soltar Tinto de Meléndez
-    if (Math.random() < 0.1) {
+    if (Math.random() < 0.11) {
       const item = this.powerUps.create(enemy.x, enemy.y, 'powerup_tinto');
       item.setVelocityY(125);
       item.setDepth(9);
@@ -429,6 +637,55 @@ export class GameScene extends Phaser.Scene {
 
     if (this.enemies.countActive(true) === 0 && !this.isLevelEnding) {
       this.completeLevel();
+    }
+  }
+
+  handleBossHit(boss) {
+    if (this.isLevelEnding) return;
+    this.bossHp = Math.max(0, this.bossHp - 1);
+    this.addScore(25);
+    soundManager.playBossHit();
+
+    boss.setTintFill(0xffffff);
+    this.time.delayedCall(55, () => {
+      if (boss.active) boss.clearTint();
+    });
+
+    const ratio = this.bossHp / this.bossMaxHp;
+    if (this.bossBarFill) {
+      this.bossBarFill.width = Math.max(0, 416 * ratio);
+    }
+
+    if (this.bossHp <= 0) {
+      this.isLevelEnding = true;
+      this.physics.pause();
+      if (this.bossAttackTimer) this.bossAttackTimer.remove(false);
+      if (this.bossTauntTimer) this.bossTauntTimer.remove(false);
+      this.addScore(2500);
+
+      for (let i = 0; i < 6; i += 1) {
+        this.time.delayedCall(i * 180, () => {
+          if (!boss.active) return;
+          this.spawnExplosionParticles(
+            boss.x + Phaser.Math.Between(-50, 50),
+            boss.y + Phaser.Math.Between(-35, 35),
+            i % 2 === 0 ? 0xffd700 : 0xe6192e
+          );
+          soundManager.playExplosion();
+        });
+      }
+
+      this.time.delayedCall(1250, () => {
+        if (this.bossLabel) this.bossLabel.destroy();
+        if (this.bossTauntText) this.bossTauntText.destroy();
+        boss.destroy();
+        soundManager.playGameOver(true);
+        transitionTo(this, 'GameOverScene', {
+          victory: true,
+          score: this.score,
+          levelReached: this.levelNumber
+        });
+      });
     }
   }
 
@@ -447,8 +704,8 @@ export class GameScene extends Phaser.Scene {
       this.isLevelEnding = true;
       this.physics.pause();
       soundManager.playGameOver(false);
-      this.time.delayedCall(900, () => {
-        this.scene.start('GameOverScene', {
+      this.time.delayedCall(850, () => {
+        transitionTo(this, 'GameOverScene', {
           victory: false,
           score: this.score,
           levelReached: this.levelNumber
@@ -465,9 +722,7 @@ export class GameScene extends Phaser.Scene {
       yoyo: true,
       repeat: 6,
       onComplete: () => {
-        if (this.player && this.player.active) {
-          this.player.setAlpha(1);
-        }
+        if (this.player && this.player.active) this.player.setAlpha(1);
       }
     });
   }
@@ -480,16 +735,16 @@ export class GameScene extends Phaser.Scene {
     this.addScore(bonus);
     this.showFloatingBanner(`¡SECTOR ${this.levelNumber} DESPEJADO! +${bonus} PTS`);
 
-    this.time.delayedCall(1500, () => {
+    this.time.delayedCall(1400, () => {
       if (this.levelNumber < LEVELS.length) {
-        this.scene.start('StoryScene', {
+        transitionTo(this, 'StoryScene', {
           level: this.levelNumber + 1,
           score: this.score,
           lives: this.lives
         });
       } else {
         soundManager.playGameOver(true);
-        this.scene.start('GameOverScene', {
+        transitionTo(this, 'GameOverScene', {
           victory: true,
           score: this.score,
           levelReached: this.levelNumber
@@ -510,16 +765,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnExplosionParticles(x, y, color) {
-    for (let i = 0; i < 8; i += 1) {
-      const p = this.add.rectangle(x, y, 4, 4, color);
+    for (let i = 0; i < 9; i += 1) {
+      const p = this.add.rectangle(x, y, 4, 4, color).setDepth(25);
       const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-      const dist = Phaser.Math.Between(14, 34);
+      const dist = Phaser.Math.Between(14, 38);
       this.tweens.add({
         targets: p,
         x: x + Math.cos(angle) * dist,
         y: y + Math.sin(angle) * dist,
         alpha: 0,
-        duration: 260,
+        duration: 270,
         onComplete: () => p.destroy()
       });
     }
@@ -529,7 +784,7 @@ export class GameScene extends Phaser.Scene {
     const banner = this.add
       .text(GAME_CONFIG.WIDTH / 2, 110, msg, {
         fontFamily: '"Courier New", monospace',
-        fontSize: '18px',
+        fontSize: '17px',
         fontStyle: 'bold',
         color: COLORS.STAR_WARS_YELLOW,
         backgroundColor: '#0f172ad9',
@@ -540,9 +795,9 @@ export class GameScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: banner,
-      y: 86,
+      y: 84,
       alpha: 0,
-      duration: 1600,
+      duration: 1500,
       ease: 'Quad.easeOut',
       onComplete: () => banner.destroy()
     });
@@ -551,7 +806,7 @@ export class GameScene extends Phaser.Scene {
   firePlayerBullet() {
     const now = this.time.now;
     const isDouble = now < this.doubleShotUntil;
-    const cooldown = isDouble ? 190 : 280;
+    const cooldown = isDouble ? 185 : 270;
 
     if (now - this.lastFiredAt < cooldown) return;
     this.lastFiredAt = now;
@@ -579,47 +834,66 @@ export class GameScene extends Phaser.Scene {
     if (activeEnemies.length === 0) return;
 
     const shooter = Phaser.Utils.Array.GetRandom(activeEnemies);
-    const bullet = this.enemyBullets.create(shooter.x, shooter.y + 14, 'bullet_enemy');
-    if (!bullet) return;
+    const projType = shooter.getData('projectile') || 'parcial';
+    this.spawnEnemyProjectile(shooter.x, shooter.y + 16, projType, this.levelConfig.enemyBulletSpeed);
+  }
 
-    bullet.setVelocityY(this.levelConfig.enemyBulletSpeed);
-    bullet.setDepth(9);
-    soundManager.playEnemyShoot();
+  spawnEnemyProjectile(x, y, typeName, baseSpeed) {
+    const def = PROJECTILES[typeName] || PROJECTILES.parcial;
+    const bullet = this.enemyBullets.create(x, y, def.texture);
+    if (!bullet) return null;
+
+    const speed = baseSpeed * (def.speedMul || 1);
+    bullet.setData('behavior', def.behavior);
+    bullet.setData('baseX', x);
+    bullet.setData('spawnTime', this.time.now);
+    bullet.setData('massive', Boolean(def.massive));
+    bullet.setData('destructible', Boolean(def.destructible));
+    bullet.setData('hp', def.hp || 1);
+    bullet.setDepth(11);
+
+    if (def.behavior === 'spin') {
+      bullet.setVelocityY(speed);
+      bullet.setAngularVelocity(260);
+    } else if (def.behavior === 'aimed') {
+      const dx = this.player.x - x;
+      const dy = Math.max(80, this.player.y - y);
+      const len = Math.hypot(dx, dy);
+      bullet.setVelocity((dx / len) * speed, (dy / len) * speed);
+    } else {
+      bullet.setVelocityY(speed);
+    }
+
+    if (def.bodyScale) {
+      bullet.body.setSize(bullet.width * def.bodyScale, bullet.height * def.bodyScale);
+    }
+
+    soundManager.playEnemyShoot(typeName);
+    return bullet;
   }
 
   togglePause() {
     if (this.isLevelEnding) return;
     this.isPaused = !this.isPaused;
     this.pauseBanner.setVisible(this.isPaused);
+    const timers = [this.enemyFireTimer, this.diveTimer, this.mangoTimer, this.ufoTimer, this.bossAttackTimer, this.bossTauntTimer];
     if (this.isPaused) {
       this.physics.pause();
-      if (this.enemyFireTimer) this.enemyFireTimer.paused = true;
-      if (this.bossTimer) this.bossTimer.paused = true;
+      timers.forEach((t) => { if (t) t.paused = true; });
     } else {
       this.physics.resume();
-      if (this.enemyFireTimer) this.enemyFireTimer.paused = false;
-      if (this.bossTimer) this.bossTimer.paused = false;
+      timers.forEach((t) => { if (t) t.paused = false; });
     }
   }
 
   update(time, delta) {
     const dt = delta / 1000;
-
-    // Fondo estelar continuo
-    for (let i = 0; i < this.stars.length; i += 1) {
-      const s = this.stars[i];
-      s.y += s.speed * dt;
-      if (s.y > GAME_CONFIG.HEIGHT) {
-        s.y = 48;
-        s.x = Phaser.Math.Between(0, GAME_CONFIG.WIDTH);
-      }
-    }
+    if (this.bg) this.bg.update(time, dt);
 
     if (this.isPaused || this.isLevelEnding) return;
 
     this.updateTouchState();
 
-    // Movimiento jugador (Teclado + Táctil)
     const moveLeft = this.cursors.left.isDown || this.keyA.isDown || this.touchState.left;
     const moveRight = this.cursors.right.isDown || this.keyD.isDown || this.touchState.right;
 
@@ -631,50 +905,72 @@ export class GameScene extends Phaser.Scene {
       this.player.setVelocityX(0);
     }
 
-    // Disparo (Teclado + Táctil)
     const wantShoot =
       this.keySpace.isDown ||
       this.cursors.up.isDown ||
       this.keyW.isDown ||
       this.touchState.shoot;
 
-    if (wantShoot) {
-      this.firePlayerBullet();
+    if (wantShoot) this.firePlayerBullet();
+
+    if (this.levelConfig.type === 'boss') {
+      this.updateBossMovement(time, dt);
+    } else {
+      this.updateEnemyFormation(time, dt);
     }
 
-    // Movimiento sincronizado de la formación enemiga
-    this.updateEnemyFormation(time, dt);
+    this.updateWaveProjectiles(time);
     this.cleanupOffscreenObjects();
   }
 
-  updateEnemyFormation(time, dt) {
-    const activeEnemies = this.enemies.getChildren().filter((e) => e.active);
-    if (activeEnemies.length === 0) return;
+  updateBossMovement(time, dt) {
+    if (!this.boss || !this.boss.active) return;
+    const hpRatio = this.bossHp / this.bossMaxHp;
+    const speed = hpRatio < 0.3 ? 340 : hpRatio < 0.65 ? 275 : 220;
 
-    const remainingRatio = activeEnemies.length / Math.max(1, this.initialEnemyCount);
+    this.boss.x += this.bossDir * speed * dt;
+    this.boss.y = 132 + Math.sin(time / 380) * 18;
+
+    if (this.boss.x >= GAME_CONFIG.WIDTH - 86 && this.bossDir > 0) this.bossDir = -1;
+    else if (this.boss.x <= 86 && this.bossDir < 0) this.bossDir = 1;
+
+    if (this.bossLabel) {
+      this.bossLabel.setPosition(this.boss.x, this.boss.y + 38);
+    }
+    if (this.bossTauntText && this.bossTauntText.visible) {
+      this.bossTauntText.setPosition(
+        Phaser.Math.Clamp(this.boss.x, 150, GAME_CONFIG.WIDTH - 150),
+        this.boss.y - 68
+      );
+    }
+  }
+
+  updateEnemyFormation(time, dt) {
+    const formationEnemies = this.enemies
+      .getChildren()
+      .filter((e) => e.active && !e.getData('diving'));
+
+    if (formationEnemies.length === 0) return;
+
+    const remainingRatio = formationEnemies.length / Math.max(1, this.initialEnemyCount);
     const speedMultiplier = 1 + (1 - remainingRatio) * 1.45;
     const currentSpeed = this.levelConfig.enemySpeedX * speedMultiplier;
 
     let hitEdge = false;
     let reachedBottom = false;
 
-    for (let i = 0; i < activeEnemies.length; i += 1) {
-      const enemy = activeEnemies[i];
+    for (let i = 0; i < formationEnemies.length; i += 1) {
+      const enemy = formationEnemies[i];
       enemy.x += this.enemyDirection * currentSpeed * dt;
-      if (enemy.x >= GAME_CONFIG.WIDTH - 34 && this.enemyDirection > 0) {
-        hitEdge = true;
-      } else if (enemy.x <= 34 && this.enemyDirection < 0) {
-        hitEdge = true;
-      }
-      if (enemy.y >= GAME_CONFIG.HEIGHT - 90) {
-        reachedBottom = true;
-      }
+      if (enemy.x >= GAME_CONFIG.WIDTH - 34 && this.enemyDirection > 0) hitEdge = true;
+      else if (enemy.x <= 34 && this.enemyDirection < 0) hitEdge = true;
+      if (enemy.y >= GAME_CONFIG.HEIGHT - 90) reachedBottom = true;
     }
 
     if (hitEdge) {
       this.enemyDirection *= -1;
-      for (let i = 0; i < activeEnemies.length; i += 1) {
-        activeEnemies[i].y += this.levelConfig.enemyDropY;
+      for (let i = 0; i < formationEnemies.length; i += 1) {
+        formationEnemies[i].y += this.levelConfig.enemyDropY;
       }
     }
 
@@ -684,7 +980,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Sonido clásico de marcha proporcional a la velocidad
     const stepDelay = Math.max(160, 620 * remainingRatio);
     if (time >= this.nextStepSoundAt) {
       soundManager.playStep(this.stepCounter);
@@ -693,20 +988,40 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  updateWaveProjectiles(time) {
+    this.enemyBullets.getChildren().forEach((b) => {
+      if (b.active && b.getData('behavior') === 'wave') {
+        const age = (time - b.getData('spawnTime')) / 1000;
+        b.x = b.getData('baseX') + Math.sin(age * 9) * 28;
+      }
+    });
+  }
+
   cleanupOffscreenObjects() {
     this.playerBullets.getChildren().forEach((b) => {
       if (b.active && b.y < 40) b.destroy();
     });
     this.enemyBullets.getChildren().forEach((b) => {
-      if (b.active && b.y > GAME_CONFIG.HEIGHT + 16) b.destroy();
+      if (b.active && (b.y > GAME_CONFIG.HEIGHT + 24 || b.x < -30 || b.x > GAME_CONFIG.WIDTH + 30)) {
+        b.destroy();
+      }
     });
     this.powerUps.getChildren().forEach((p) => {
       if (p.active && p.y > GAME_CONFIG.HEIGHT + 16) p.destroy();
     });
-    this.bossGroup.getChildren().forEach((boss) => {
-      if (boss.active && (boss.x < -70 || boss.x > GAME_CONFIG.WIDTH + 70)) {
-        boss.destroy();
+    this.mangos.getChildren().forEach((m) => {
+      if (m.active && m.y > GAME_CONFIG.HEIGHT + 20) m.destroy();
+    });
+    this.enemies.getChildren().forEach((e) => {
+      if (e.active && e.getData('diving') && e.y > GAME_CONFIG.HEIGHT + 24) {
+        e.destroy();
+        if (this.enemies.countActive(true) === 0 && !this.isLevelEnding) {
+          this.completeLevel();
+        }
       }
+    });
+    this.ufoGroup.getChildren().forEach((ufo) => {
+      if (ufo.active && (ufo.x < -70 || ufo.x > GAME_CONFIG.WIDTH + 70)) ufo.destroy();
     });
   }
 }
