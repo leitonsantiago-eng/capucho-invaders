@@ -36,6 +36,8 @@ export class GameScene extends Phaser.Scene {
     this.bossAngry = false;
     this.bossAngryBrows = null;
     this.tutorialActive = false;
+    this.petroCameoShown = false;
+    this.petroCameoTimer = null;
   }
 
   create() {
@@ -90,6 +92,11 @@ export class GameScene extends Phaser.Scene {
 
     if (this.levelNumber === 1) {
       this.startDurangoTutorial();
+    } else if (this.levelNumber === 2) {
+      this.petroCameoTimer = this.time.addEvent({
+        delay: 8500,
+        callback: () => this.triggerPetroCameo()
+      });
     }
   }
 
@@ -661,7 +668,17 @@ export class GameScene extends Phaser.Scene {
 
     enemy.destroy();
 
-    if (this.enemies.countActive(true) === 0 && !this.isLevelEnding) {
+    const remaining = this.enemies.countActive(true);
+    if (
+      this.levelNumber === 2 &&
+      !this.petroCameoShown &&
+      remaining > 0 &&
+      remaining <= Math.ceil(this.initialEnemyCount / 2)
+    ) {
+      this.triggerPetroCameo();
+    }
+
+    if (remaining === 0 && !this.isLevelEnding) {
       this.completeLevel();
     }
   }
@@ -926,7 +943,7 @@ export class GameScene extends Phaser.Scene {
     ];
 
     const box = this.add
-      .rectangle(365, baseY - 4, 440, 88, 0x0f172af2)
+      .rectangle(365, baseY - 4, 440, 88, 0x0f172a, 0.94)
       .setStrokeStyle(2, 0x00e5ff)
       .setDepth(36);
     const title = this.add
@@ -972,6 +989,61 @@ export class GameScene extends Phaser.Scene {
           this.tutorialActive = false;
         }
       });
+    });
+  }
+
+  triggerPetroCameo() {
+    if (this.petroCameoShown || this.isLevelEnding) return;
+    this.petroCameoShown = true;
+    if (this.petroCameoTimer) {
+      this.petroCameoTimer.remove(false);
+      this.petroCameoTimer = null;
+    }
+
+    const startX = GAME_CONFIG.WIDTH + 160;
+    const targetX = GAME_CONFIG.WIDTH - 62;
+    const cameoY = 355;
+
+    const container = this.add.container(startX, cameoY).setDepth(38);
+
+    const sprite = this.textures.exists('petro_cameo')
+      ? this.add.image(0, 0, 'petro_cameo').setDisplaySize(112, 95)
+      : this.add.rectangle(0, 0, 96, 86, 0x1e293b).setStrokeStyle(2, 0xffd700);
+
+    const bubbleBg = this.add
+      .rectangle(-168, -22, 232, 46, 0x0f172a, 0.94)
+      .setStrokeStyle(2, 0xffd700);
+
+    const bubbleText = this.add
+      .text(-168, -22, '¡Los noto asustados!', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '15px',
+        fontStyle: 'bold',
+        color: COLORS.STAR_WARS_YELLOW,
+        align: 'center'
+      })
+      .setOrigin(0.5);
+
+    container.add([bubbleBg, bubbleText, sprite]);
+
+    // Entra deslizándose desde el borde derecho, permanece ~3.5s y vuelve a ocultarse sin pausar el juego
+    this.tweens.add({
+      targets: container,
+      x: targetX,
+      duration: 450,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(3500, () => {
+          if (!container.scene) return;
+          this.tweens.add({
+            targets: container,
+            x: startX,
+            duration: 450,
+            ease: 'Cubic.easeIn',
+            onComplete: () => container.destroy()
+          });
+        });
+      }
     });
   }
 
@@ -1023,7 +1095,15 @@ export class GameScene extends Phaser.Scene {
     if (this.isLevelEnding) return;
     this.isPaused = !this.isPaused;
     this.pauseBanner.setVisible(this.isPaused);
-    const timers = [this.enemyFireTimer, this.diveTimer, this.mangoTimer, this.ufoTimer, this.bossAttackTimer, this.bossTauntTimer];
+    const timers = [
+      this.enemyFireTimer,
+      this.diveTimer,
+      this.mangoTimer,
+      this.ufoTimer,
+      this.bossAttackTimer,
+      this.bossTauntTimer,
+      this.petroCameoTimer
+    ];
     if (this.isPaused) {
       this.physics.pause();
       timers.forEach((t) => { if (t) t.paused = true; });

@@ -194,15 +194,77 @@ def generar_durango_y_manos() -> tuple[Path, Path]:
     return durango_path, mano_path
 
 
+def generar_petro_cameo() -> Path:
+    """Recorta cara/torso de Petro eliminando el fondo y dejandolo transparente (PNG)."""
+    src_path = SOURCE_DIR / "petro_original.jpg"
+    if not src_path.exists():
+        raise FileNotFoundError(f"No se encontro la imagen fuente: {src_path}")
+
+    raw = Image.open(src_path).convert("RGBA")
+    w, h = raw.size
+
+    # Recortar cara con gafas, mano en mejilla y torso superior (sin estante superior ni rotulo inferior)
+    crop_box = (int(w * 0.02), int(h * 0.19), int(w * 0.99), int(h * 0.90))
+    cropped = raw.crop(crop_box)
+    target_size = (128, 108)
+    portrait = ImageOps.fit(cropped, target_size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+
+    pw, ph = target_size
+    mask = Image.new("L", target_size, 0)
+    mdraw = ImageDraw.Draw(mask)
+
+    # Cabeza inclinada (rotacion antihoraria +22 deg sigue el eje frente->menton)
+    head_layer = Image.new("L", target_size, 0)
+    hdraw = ImageDraw.Draw(head_layer)
+    hdraw.ellipse([int(pw * 0.20), int(ph * 0.03), int(pw * 0.64), int(ph * 0.72)], fill=255)
+    head_rot = head_layer.rotate(22, center=(int(pw * 0.42), int(ph * 0.37)))
+    mask.paste(255, mask=head_rot)
+
+    # Mano izquierda sosteniendo mejilla y muñeca con reloj (sin incluir libros del fondo)
+    mdraw.polygon(
+        [
+            (int(pw * 0.04), ph),
+            (int(pw * 0.08), int(ph * 0.80)),
+            (int(pw * 0.17), int(ph * 0.62)),
+            (int(pw * 0.30), int(ph * 0.52)),
+            (int(pw * 0.36), ph),
+        ],
+        fill=255,
+    )
+
+    # Cuello y camisa/torso inferior
+    mdraw.polygon(
+        [
+            (int(pw * 0.22), ph),
+            (int(pw * 0.36), int(ph * 0.64)),
+            (int(pw * 0.68), int(ph * 0.52)),
+            (int(pw * 0.96), int(ph * 0.56)),
+            (pw - 2, ph),
+        ],
+        fill=255,
+    )
+
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=1.1))
+    petro_rgba = ImageEnhance.Contrast(portrait.convert("RGB")).enhance(1.08)
+    petro_rgba = ImageEnhance.Color(petro_rgba).enhance(1.12).convert("RGBA")
+    petro_rgba.putalpha(mask)
+
+    out_path = OUT_DIR / "petro_cameo.png"
+    petro_rgba.save(out_path, format="PNG")
+    return out_path
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     bg_path = generar_bg_plazoleta()
     boss_path = generar_rector_murillo()
     durango_path, mano_path = generar_durango_y_manos()
+    petro_path = generar_petro_cameo()
     print(f"Generado: {bg_path} ({bg_path.stat().st_size} bytes)")
     print(f"Generado: {boss_path} ({boss_path.stat().st_size} bytes)")
     print(f"Generado: {durango_path} ({durango_path.stat().st_size} bytes)")
     print(f"Generado: {mano_path} ({mano_path.stat().st_size} bytes)")
+    print(f"Generado: {petro_path} ({petro_path.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":
